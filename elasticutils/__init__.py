@@ -182,20 +182,26 @@ def split_field_action(s):
     return s, None
 
 
-def _process_facets(facets, flags):
+def _process_facets(s, facets, flags):
     rv = {}
     for fieldname in facets:
+        kwargs = copy.copy(flags)
         facet_type = {'terms': {'field': fieldname}}
         if flags.get('size'):
-            facet_type['terms']['size'] = flags['size']
+            facet_type['terms']['size'] = kwargs.pop('size', None)
         if flags.get('global_'):
-            facet_type['global'] = flags['global_']
+            facet_type['global'] = kwargs.pop('global_', None)
         elif flags.get('filtered'):
             # Note: This is an indicator that the facet_filter should
             # get filled in later when we know all the filters.
-            facet_type['facet_filter'] = None
-
-        rv[fieldname] = facet_type
+            if flags['filtered'] is True:
+                facet_type['facet_filter'] = None
+            else:
+                facet_type['facet_filter'] = s._process_filters([flags['filtered']])[0]
+            del kwargs['filtered']
+        name = kwargs.pop('name', None)
+        facet_type.update(**kwargs)
+        rv[name or fieldname] = facet_type
     return rv
 
 
@@ -1127,7 +1133,7 @@ class S(PythonMixin):
                 filters_raw = value
             elif action == 'facet':
                 # value here is a (args, kwargs) tuple
-                facets.update(_process_facets(*value))
+                facets.update(_process_facets(self, *value))
             elif action == 'facet_raw':
                 facets_raw.update(dict(value))
             elif action == 'highlight':
@@ -1309,6 +1315,16 @@ class S(PythonMixin):
                             key: [longitude, latitude]
                         }
                     })
+
+                elif field_action == 'nested':
+                    path, value = val
+
+                    if isinstance(value, F):
+                        res = self._process_filters([value])[0]
+                    else:
+                        fieldname = u"{0}.{1}".format(path, key)
+                        res = {'term': {fieldname: value}}
+                    rv.append({'nested': {'filter': res, 'path': path}})
 
                 else:
                     raise InvalidFieldActionError(
