@@ -34,6 +34,7 @@ FACET_TYPES = [
     'range',
     'statistical',
     'terms',
+    'geo_distance'
 ]
 
 #: Maps ElasticUtils field actions to their Elasticsearch query names.
@@ -194,10 +195,14 @@ def _process_facets(s, facets, flags):
         elif flags.get('filtered'):
             # Note: This is an indicator that the facet_filter should
             # get filled in later when we know all the filters.
-            if flags['filtered'] is True:
+            if flags['filtered']:
                 facet_type['facet_filter'] = None
-            else:
-                facet_type['facet_filter'] = s._process_filters([flags['filtered']])[0]
+                try:
+                    if flags['facet_filter']:
+                        facet_type['facet_filter'] = s._process_filters([flags['facet_filter']])[0]
+                    del kwargs['facet_filter']
+                except KeyError:
+                    pass
             del kwargs['filtered']
         name = kwargs.pop('name', None)
         facet_type.update(**kwargs)
@@ -1308,10 +1313,19 @@ class S(PythonMixin):
 
                 elif field_action == 'distance':
                     distance, latitude, longitude = val
-
                     rv.append({
                         'geo_distance': {
                             'distance': distance,
+                            key: [longitude, latitude]
+                        }
+                    })
+
+                elif field_action == 'distance_range':
+                    lower, upper, latitude, longitude = val
+                    rv.append({
+                        'geo_distance_range': {
+                            'from': lower,
+                            'to': upper,
                             key: [longitude, latitude]
                         }
                     })
