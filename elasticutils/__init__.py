@@ -937,6 +937,9 @@ class S(PythonMixin):
 
         return self._clone(next_step=('demote', (amount_, q)))
 
+    def source(self, *args, **kw):
+        return self._clone(next_step=('source', (args, kw)))
+
     def facet(self, *args, **kw):
         """
         Return a new S instance with facet args combined with existing
@@ -1088,6 +1091,7 @@ class S(PythonMixin):
         """
         filters = []
         filters_raw = None
+        source = None
         queries = []
         query_raw = None
         sort = []
@@ -1151,6 +1155,12 @@ class S(PythonMixin):
                 search_type = value
             elif action == 'suggest':
                 suggestions[value[0]] = (value[1], value[2])
+            elif action == 'source':
+                args, kwargs = value
+                if not args:
+                    source = kwargs
+                else:
+                    source = args[0]
             elif action in ('es', 'indexes', 'doctypes', 'boost'):
                 # Ignore these--we use these elsewhere, but want to
                 # make sure lack of handling it here doesn't throw an
@@ -1160,6 +1170,10 @@ class S(PythonMixin):
                 raise NotImplementedError(action)
 
         qs = {}
+
+        # If we have source
+        if source:
+            qs['_source'] = source
 
         # If there's a filters_raw, we use that.
         if filters_raw:
