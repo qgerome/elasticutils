@@ -190,6 +190,8 @@ def _process_facets(s, facets, flags):
         facet_type = {'terms': {'field': fieldname}}
         if flags.get('size'):
             facet_type['terms']['size'] = kwargs.pop('size', None)
+        if flags.get('order'):
+            facet_type['terms']['order'] = kwargs.pop('order', None)
         if flags.get('global_'):
             facet_type['global'] = kwargs.pop('global_', None)
         elif flags.get('filtered'):
