@@ -791,6 +791,12 @@ class S(PythonMixin):
         """
         return self._clone(next_step=('query_raw', query))
 
+    def nested_filter(self, path, *filters, **kw):
+        items = kw.items()
+        if six.PY3:
+            items = list(items)
+        return self._clone(next_step=('nested_filter', (path, list(filters) + items)))
+
     def filter(self, *filters, **kw):
         """
         Return a new S instance with filter args combined with
@@ -1092,6 +1098,7 @@ class S(PythonMixin):
 
         """
         filters = []
+        nested_filters = {}
         filters_raw = None
         source = None
         queries = []
@@ -1138,6 +1145,11 @@ class S(PythonMixin):
             elif action == 'demote':
                 # value here is a tuple of (negative_boost, query)
                 demote = value
+            elif action == 'nested_filter':
+                path, val = value
+                nested_filters.setdefault(path, F())
+                for v in val:
+                    nested_filters[path] &= v
             elif action == 'filter':
                 filters.extend(self._process_filters(value))
             elif action == 'filter_raw':
@@ -1176,6 +1188,10 @@ class S(PythonMixin):
         # If we have source
         if source:
             qs['_source'] = source
+
+        if nested_filters:
+            for f, v in nested_filters.items():
+                filters.extend(self._process_filters([F(**{f+ '__nested': (f, v)})]))
 
         # If there's a filters_raw, we use that.
         if filters_raw:
