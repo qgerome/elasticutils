@@ -1191,7 +1191,9 @@ class S(PythonMixin):
 
         if nested_filters:
             for f, v in nested_filters.items():
-                filters.extend(self._process_filters([F(**{f+ '__nested': (f, v)})]))
+                x = self._process_filters([F(**{f+ '__nested': (f, v)})])
+                if x:
+                    filters.extend(x)
 
         # If there's a filters_raw, we use that.
         if filters_raw:
@@ -1366,7 +1368,11 @@ class S(PythonMixin):
                     path, value = val
 
                     if isinstance(value, F):
-                        res = self._process_filters([value])[0]
+                        res = self._process_filters([value])
+                        if res:
+                            res = res[0]
+                        else:
+                            continue
                     else:
                         fieldname = u"{0}.{1}".format(path, key)
                         res = {'term': {fieldname: value}}
